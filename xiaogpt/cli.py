@@ -74,6 +74,14 @@ def main():
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
+        "--use_azure",
+        dest="bot",
+        action="store_const",
+        const="azure",
+        help="if use azure openai api",
+    )
+    
+    group.add_argument(
         "--use_gpt3",
         dest="bot",
         action="store_const",
@@ -100,18 +108,25 @@ def main():
         help="new bing cookies path if use new bing",
     )
     group.add_argument(
-        "--bot", dest="bot", help="bot type", choices=["gpt3", "chatgptapi", "newbing"]
+        "--bot", dest="bot", help="bot type", choices=["gpt3", "chatgptapi", "newbing", "azure"]
     )
     parser.add_argument(
         "--config",
         dest="config",
         help="config file path",
+        default="xiao_config.json"
     )
     # args to change api_base
     parser.add_argument(
         "--api_base",
         dest="api_base",
         help="specify base url other than the OpenAI's official API address",
+    )
+
+    parser.add_argument(
+        "--engine",
+        dest="engine",
+        help="specify the deployment name you chose when you deployed the ChatGPT or GPT-4 model."
     )
 
     options = parser.parse_args()
