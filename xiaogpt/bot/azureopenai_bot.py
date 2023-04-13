@@ -7,8 +7,9 @@ from xiaogpt.bot.base_bot import BaseBot
 
 class AzureOpenAIBot(BaseBot):
     max_response_tokens = 250
-    token_limit= 4000
-    system_msg= {"role": "system", "content": "你是一个语音助手，你的名字叫小爱同学，你的回答需要方便被朗读。"}
+    token_limit = 4000
+    system_msg = {"role": "system", "content": "你是一个语音助手，你的名字叫小爱同学，你的回答需要方便被朗读。"}
+
     def __init__(self, openai_key, engine, api_base=None, proxy=None):
         self.history = []
         self.history.append(self.system_msg)
@@ -25,7 +26,9 @@ class AzureOpenAIBot(BaseBot):
         encoding = tiktoken.encoding_for_model("gpt-3.5-turbo-0301")
         num_tokens = 0
         for message in messages:
-            num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
+            num_tokens += (
+                4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
+            )
             for key, value in message.items():
                 num_tokens += len(encoding.encode(value))
                 if key == "name":  # if there's a name, the role is omitted
@@ -37,16 +40,16 @@ class AzureOpenAIBot(BaseBot):
         self.history.append({"role": "user", "content": f"{query}"})
         history_tokens = self.num_tokens_from_messages(self.history)
 
-        while (history_tokens > self.token_limit):
+        while history_tokens > self.token_limit:
             del self.history[1]
             history_tokens = self.num_tokens_from_messages(self.history)
-        
+
         response = openai.ChatCompletion.create(
-            engine = self.engine,
-            messages = self.history,
-            temperature = 0.5,
-            max_tokens = self.max_response_tokens,
-            stream = False,
+            engine=self.engine,
+            messages=self.history,
+            temperature=0.5,
+            max_tokens=self.max_response_tokens,
+            stream=False,
         )
         message = response["choices"][0]["message"]["content"]
         print(message + "\n")
@@ -57,16 +60,16 @@ class AzureOpenAIBot(BaseBot):
         self.history.append({"role": "user", "content": f"{query}"})
         history_tokens = self.num_tokens_from_messages(self.history)
 
-        while (history_tokens > self.token_limit):
+        while history_tokens > self.token_limit:
             del self.history[1]
             history_tokens = self.num_tokens_from_messages(self.history)
-        
+
         response = openai.ChatCompletion.create(
-            engine = self.engine,
-            messages = self.history,
-            temperature = 0.5,
-            max_tokens = self.max_response_tokens,
-            stream = True,
+            engine=self.engine,
+            messages=self.history,
+            temperature=0.5,
+            max_tokens=self.max_response_tokens,
+            stream=True,
         )
         message = ""
         for event in response:

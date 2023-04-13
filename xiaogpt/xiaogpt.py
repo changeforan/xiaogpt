@@ -101,7 +101,7 @@ class MiGPT:
                 if (d := time.perf_counter() - start) < 1:
                     # sleep to avoid too many request
                     await asyncio.sleep(1 - d)
-    
+
     async def continue_mute_xiao_ai(self):
         if self.config.mute_xiaoai:
             while True:
@@ -205,7 +205,10 @@ class MiGPT:
                 )
             elif self.config.bot == "azure":
                 self._chatbot = AzureOpenAIBot(
-                    self.config.openai_key, self.config.engine, self.config.api_base, self.config.proxy
+                    self.config.openai_key,
+                    self.config.engine,
+                    self.config.api_base,
+                    self.config.proxy,
                 )
             else:
                 raise Exception(f"Do not support {self.config.bot}")
@@ -228,9 +231,7 @@ class MiGPT:
 
     def need_ask_gpt(self, record):
         query = record.get("query", "")
-        return (
-            not query.startswith(WAKEUP_KEYWORD)
-        )
+        return not query.startswith(WAKEUP_KEYWORD)
 
     def need_change_prompt(self, record):
         if self.config.bot == "gpt3":

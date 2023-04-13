@@ -96,7 +96,7 @@ class Config:
                 raise Exception(
                     "Using Azure OpenAI bot needs engine name, reference:"
                     "https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/chatgpt?pivots=programming-language-chat-completions#creating-a-basic-conversation-loop"
-                    )
+                )
 
     @property
     def tts_command(self) -> str:
