@@ -487,7 +487,7 @@ class MiGPT:
                     )
                 except IndexError:
                     print("小爱没回")
-                print("以下是ChatBot的回答: ", end="")
+                print("以下是GPT的回答: ", end="")
                 try:
                     if not self.config.enable_edge_tts:
                         async for message in self.ask_gpt(query):
@@ -501,7 +501,7 @@ class MiGPT:
                         await self.edge_tts(self.ask_gpt(query), tts_lang)
                     print("回答完毕")
                 except Exception as e:
-                    print(f"ChatBot回答出错 {str(e)}")
+                    print(f"GPT回答出错 {str(e)}")
                 finally:
                     self.mute_event.set()
 
