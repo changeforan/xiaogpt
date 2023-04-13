@@ -21,7 +21,7 @@ from miservice import MiAccount, MiIOService, MiNAService, miio_command
 from rich import print
 from rich.logging import RichHandler
 
-from xiaogpt.bot import ChatGPTBot, GPT3Bot, NewBingBot
+from xiaogpt.bot import ChatGPTBot, GPT3Bot, NewBingBot, AzureOpenAIBot
 from xiaogpt.config import (
     COOKIE_TEMPLATE,
     EDGE_TTS_DICT,
@@ -77,6 +77,8 @@ class MiGPT:
         self.in_conversation = False
         self.polling_event = asyncio.Event()
         self.new_record_event = asyncio.Event()
+        self.mute_event = asyncio.Event()
+        self.mute_event.set()
         self.temp_dir = None
 
         # setup logger
@@ -99,6 +101,14 @@ class MiGPT:
                 if (d := time.perf_counter() - start) < 1:
                     # sleep to avoid too many request
                     await asyncio.sleep(1 - d)
+    
+    async def continue_mute_xiao_ai(self):
+        if self.config.mute_xiaoai:
+            while True:
+                await self.mute_event.wait()
+                await self.mina_service.player_pause(self.device_id)
+                # sleep 100ms to avoid too many request
+                await asyncio.sleep(0.1)
 
     async def init_all_data(self, session):
         await self.login_miboy(session)
@@ -193,6 +203,10 @@ class MiGPT:
                     bing_cookies=self.config.bing_cookies,
                     proxy=self.config.proxy,
                 )
+            elif self.config.bot == "azure":
+                self._chatbot = AzureOpenAIBot(
+                    self.config.openai_key, self.config.engine, self.config.api_base, self.config.proxy
+                )
             else:
                 raise Exception(f"Do not support {self.config.bot}")
         return self._chatbot
@@ -215,9 +229,7 @@ class MiGPT:
     def need_ask_gpt(self, record):
         query = record.get("query", "")
         return (
-            self.in_conversation
-            and not query.startswith(WAKEUP_KEYWORD)
-            or query.startswith(tuple(self.config.keyword))
+            not query.startswith(WAKEUP_KEYWORD)
         )
 
     def need_change_prompt(self, record):
@@ -260,12 +272,13 @@ class MiGPT:
                 return
             last_record = records[0]
             timestamp = last_record.get("time")
-            if timestamp > self.last_timestamp:
+            if timestamp > self.last_timestamp and self.need_ask_gpt(last_record):
                 self.last_timestamp = timestamp
                 self.last_record = last_record
                 self.new_record_event.set()
 
     async def do_tts(self, value, wait_for_finish=False):
+        self.mute_event.clear()
         if not self.config.use_command:
             try:
                 await self.mina_service.text_to_speech(self.device_id, value)
@@ -424,8 +437,10 @@ class MiGPT:
         async with ClientSession() as session:
             await self.init_all_data(session)
             task = asyncio.create_task(self.poll_latest_ask())
+            mute_task = asyncio.create_task(self.continue_mute_xiao_ai())
             assert task is not None  # to keep the reference to task, do not remove this
-            print(f"Running xiaogpt now, 用`{'/'.join(self.config.keyword)}`开头来提问")
+            assert mute_task is not None
+            print(f"Running xiaogpt now...")
             print(f"或用`{self.config.start_conversation}`开始持续对话")
             while True:
                 self.polling_event.set()
@@ -440,13 +455,11 @@ class MiGPT:
                         print("开始对话")
                         self.in_conversation = True
                         await self.wakeup_xiaoai()
-                    await self.stop_if_xiaoai_is_playing()
                     continue
                 elif query == self.config.end_conversation:
                     if self.in_conversation:
                         print("结束对话")
                         self.in_conversation = False
-                    await self.stop_if_xiaoai_is_playing()
                     continue
 
                 # we can change prompt
@@ -455,7 +468,7 @@ class MiGPT:
                     self._change_prompt(new_record.get("query", ""))
 
                 if not self.need_ask_gpt(new_record):
-                    self.log.debug("No new xiao ai record")
+                    self.log.debug("No need to ask gpt")
                     continue
 
                 # drop 帮我回答
@@ -465,12 +478,7 @@ class MiGPT:
                 print("问题：" + query + "？")
                 if not self.chatbot.history:
                     query = f"{query}，{self.config.prompt}"
-                if self.config.mute_xiaoai:
-                    await self.stop_if_xiaoai_is_playing()
-                else:
-                    # waiting for xiaoai speaker done
-                    await asyncio.sleep(8)
-                await self.do_tts("正在问GPT请耐心等待")
+                # await self.do_tts("正在问GPT请耐心等待")
                 try:
                     print(
                         "以下是小爱的回答: ",
@@ -478,7 +486,7 @@ class MiGPT:
                     )
                 except IndexError:
                     print("小爱没回")
-                print("以下是GPT的回答: ", end="")
+                print("以下是ChatBot的回答: ", end="")
                 try:
                     if not self.config.enable_edge_tts:
                         async for message in self.ask_gpt(query):
@@ -492,7 +500,10 @@ class MiGPT:
                         await self.edge_tts(self.ask_gpt(query), tts_lang)
                     print("回答完毕")
                 except Exception as e:
-                    print(f"GPT回答出错 {str(e)}")
+                    print(f"ChatBot回答出错 {str(e)}")
+                finally:
+                    self.mute_event.set()
+
                 if self.in_conversation:
                     print(f"继续对话, 或用`{self.config.end_conversation}`结束对话")
                     await self.wakeup_xiaoai()

@@ -44,7 +44,7 @@ DEFAULT_COMMAND = ("5-1", "5-5")
 
 KEY_WORD = ("帮我", "请回答")
 CHANGE_PROMPT_KEY_WORD = ("更改提示词",)
-PROMPT = "以下请用100字以内回答，请只回答文字不要带链接"
+PROMPT = ""
 # simulate_xiaoai_question
 MI_ASK_SIMULATE_DATA = {
     "code": 0,
@@ -78,6 +78,7 @@ class Config:
     gpt_options: dict[str, Any] = field(default_factory=dict)
     bing_cookie_path: str = ""
     bing_cookies: dict | None = None
+    engine: str | None = None
 
     def __post_init__(self) -> None:
         if self.proxy:
@@ -90,6 +91,12 @@ class Config:
                 )
         elif not self.openai_key:
             raise Exception("Using GPT api needs openai API key, please google how to")
+        if self.bot == "azure":
+            if not self.engine:
+                raise Exception(
+                    "Using Azure OpenAI bot needs engine name, reference:"
+                    "https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/chatgpt?pivots=programming-language-chat-completions#creating-a-basic-conversation-loop"
+                    )
 
     @property
     def tts_command(self) -> str:
@@ -126,5 +133,7 @@ class Config:
                         key, value = "bot", "gpt3"
                     elif key == "use_newbing":
                         key, value = "bot", "newbing"
+                    elif key == "use_azure":
+                        key, value = "bot", "azure"
                     result[key] = value
         return result
